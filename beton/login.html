@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Авторизация</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f5f5f5;
+    }
+    .container {
+      width: 100%;
+      max-width: 400px;
+      padding: 30px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #0069d9;
+    }
+    .error {
+      color: #dc3545;
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Вход в систему</h1>
+  <form id="loginForm">
+    <div class="form-group">
+      <label for="login">Логин:</label>
+      <input type="text" id="login" required>
+    </div>
+    <div class="form-group">
+      <label for="password">Пароль:</label>
+      <input type="password" id="password" required>
+    </div>
+    <button type="submit">Войти</button>
+    <div id="error" class="error"></div>
+  </form>
+</div>
+
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const login = document.getElementById('login').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const errorElement = document.getElementById('error');
+
+    if (!login || !password) {
+      errorElement.textContent = 'Заполните все поля';
+      return;
+    }
+
+    try {
+      errorElement.textContent = '';
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ login, password })
+      });
+
+      if (response.ok) {
+        window.location.href = '/';
+      } else {
+        const errorData = await response.json();
+        errorElement.textContent = errorData.message || 'Ошибка авторизации';
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+      errorElement.textContent = 'Ошибка соединения с сервером';
+    }
+  });
+</script>
+</body>
+</html>

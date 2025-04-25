@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мониторинг параметров технологического процесса дозирования бетона</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --border-color: rgba(221, 221, 221, 0.3);
+            --text-color: #333;
+            --bg-color: #f5f5f5;
+            --warning-color: #ffc107;
+            --card-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: var(--text-color);
+            background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+            background-image: 
+                linear-gradient(rgba(200, 200, 200, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(200, 200, 200, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            min-height: 100vh;
+        }
+
+        .header {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            background-color: var(--card-bg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .connected {
+            background-color: rgba(223, 240, 216, 0.9);
+            color: #3c763d;
+        }
+
+        .disconnected {
+            background-color: rgba(242, 222, 222, 0.9);
+            color: #a94442;
+        }
+
+        .connecting {
+            background-color: rgba(252, 248, 227, 0.9);
+            color: #8a6d3b;
+        }
+
+        .chart-wrapper {
+            margin-bottom: 30px;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+
+        .chart-wrapper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .chart-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(245, 245, 245, 0.7);
+        }
+
+        .chart-title {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            padding: 20px;
+        }
+
+        .threshold-info {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background-color: rgba(248, 249, 250, 0.7);
+            border-top: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        .threshold-value {
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .min-threshold {
+            background-color: rgba(248, 215, 218, 0.7);
+            color: #721c24;
+        }
+
+        .max-threshold {
+            background-color: rgba(209, 236, 241, 0.7);
+            color: #0c5460;
+        }
+
+        .out-of-range {
+            background-color: var(--warning-color);
+            color: #856404;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Мониторинг параметров технологического процесса дозирования бетона</h1>
+    <div class="nav-buttons">
+        <button id="adminBtn" class="btn btn-primary" style="display: none;">Админ-панель</button>
+        <button onclick="window.location.href='/view-logs'" class="btn btn-primary">Журнал событий</button>
+        <button onclick="window.location.href='/reports'" class="btn btn-primary">Отчеты</button>
+        <button onclick="logout()" class="btn btn-danger">Выйти</button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="status" class="status connecting">Подключение к серверу...</div>
+
+    <div class="chart-wrapper">
+        <div class="chart-header">
+            <h3 class="chart-title">Скорость подачи (<span id="speedUnits">°</span>)</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="speedChart"></canvas>
+        </div>
+        <div class="threshold-info">
+            <span>Минимум: <span id="speedMin" class="threshold-value min-threshold">-</span></span>
+            <span>Максимум: <span id="speedMax" class="threshold-value max-threshold">-</span></span>
+            <span id="speedStatus"></span>
+        </div>
+    </div>
+
+    <div class="chart-wrapper">
+        <div class="chart-header">
+            <h3 class="chart-title">Вес смеси (<span id="weightUnits">г</span>)</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="weightChart"></canvas>
+        </div>
+        <div class="threshold-info">
+            <span>Минимум: <span id="weightMin" class="threshold-value min-threshold">-</span></span>
+            <span>Максимум: <span id="weightMax" class="threshold-value max-threshold">-</span></span>
+            <span id="weightStatus"></span>
+        </div>
+    </div>
+
+    <div class="chart-wrapper">
+        <div class="chart-header">
+            <h3 class="chart-title">Статус заполнения формы (<span id="statusUnits">bool</span>)</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="statusChart"></canvas>
+        </div>
+        <div class="threshold-info">
+            <span>Минимум: <span id="statusMin" class="threshold-value min-threshold">-</span></span>
+            <span>Максимум: <span id="statusMax" class="threshold-value max-threshold">-</span></span>
+            <span id="statusStatus"></span>
+        </div>
+    </div>
+
+    <div class="chart-wrapper">
+        <div class="chart-header">
+            <h3 class="chart-title">Уровень химикатов (<span id="himUnits">%</span>)</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="himChart"></canvas>
+        </div>
+        <div class="threshold-info">
+            <span>Минимум: <span id="himMin" class="threshold-value min-threshold">-</span></span>
+            <span>Максимум: <span id="himMax" class="threshold-value max-threshold">-</span></span>
+            <span id="himStatus"></span>
+        </div>
+    </div>
+
+    <div class="chart-wrapper">
+        <div class="chart-header">
+            <h3 class="chart-title">Влажность (<span id="humidityUnits">%</span>)</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="humidityChart"></canvas>
+        </div>
+        <div class="threshold-info">
+            <span>Минимум: <span id="humidityMin" class="threshold-value min-threshold">-</span></span>
+            <span>Максимум: <span id="humidityMax" class="threshold-value max-threshold">-</span></span>
+            <span id="humidityStatus"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Конфигурация
+    const config = {
+        maxDataPoints: 50,
+        reconnectInterval: 5000
+    };
+
+    // DOM элементы
+    const statusElement = document.getElementById('status');
+    const adminBtn = document.getElementById('adminBtn');
+
+    // Цвета для графиков
+    const chartColors = {
+        speed: 'rgba(54, 162, 235, 1)',
+        weight: 'rgba(255, 99, 132, 1)',
+        status: 'rgba(75, 192, 192, 1)',
+        him: 'rgba(153, 102, 255, 1)',
+        humidity: 'rgba(255, 159, 64, 1)'
+    };
+
+    // Пороговые значения
+    const thresholds = {
+        speed: { min: null, max: null },
+        weight: { min: null, max: null },
+        status: { min: null, max: null },
+        him: { min: null, max: null },
+        humidity: { min: null, max: null }
+    };
+
+    // Инициализация графиков
+    const charts = {
+        speed: initChart('speedChart', 'Скорость подачи'),
+        weight: initChart('weightChart', 'Вес смеси'),
+        status: initChart('statusChart', 'Статус заполнения формы'),
+        him: initChart('himChart', 'Уровень химикатов'),
+        humidity: initChart('humidityChart', 'Влажность')
+    };
+
+    // Проверка прав администратора
+    function checkAdminRights() {
+        const token = getCookie('token');
+        if (!token) return;
+
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (payload.rights === 'admin') {
+                adminBtn.style.display = 'block';
+            }
+        } catch (e) {
+            console.error('Error parsing token:', e);
+        }
+    }
+
+    // Загрузка пороговых значений
+    async function loadThresholds() {
+        try {
+            const response = await fetch('/parameters', {
+                headers: {
+                    'Authorization': `Bearer ${getCookie('token')}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error ${response.status}: ${errorText}`);
+            }
+
+            const params = await response.json();
+
+            params.forEach(param => {
+                const paramName = param.parameter_name.toLowerCase();
+                if (thresholds[paramName]) {
+                    thresholds[paramName].min = param.min_threshold;
+                    thresholds[paramName].max = param.max_threshold;
+
+                    document.getElementById(`${paramName}Min`).textContent = param.min_threshold;
+                    document.getElementById(`${paramName}Max`).textContent = param.max_threshold;
+                    document.getElementById(`${paramName}Units`).textContent = param.units || '';
+
+                    updateChartThresholds(paramName);
+                }
+            });
+        } catch (error) {
+            console.error('Ошибка загрузки параметров:', error);
+            setTimeout(loadThresholds, 5000);
+        }
+    }
+
+    // Обновление линий порогов на графиках
+    function updateChartThresholds(paramName) {
+        const chart = charts[paramName];
+        const min = thresholds[paramName].min;
+        const max = thresholds[paramName].max;
+
+        // Удаляем старые линии порогов
+        if (chart.options.plugins.annotation.annotations) {
+            chart.options.plugins.annotation.annotations = chart.options.plugins.annotation.annotations.filter(a =>
+                a.id !== `${paramName}-min` && a.id !== `${paramName}-max`
+            );
+        }
+
+        // Добавляем новые линии порогов
+        if (min !== null) {
+            chart.options.plugins.annotation.annotations.push({
+                id: `${paramName}-min`,
+                type: 'line',
+                mode: 'horizontal',
+                scaleID: 'y',
+                value: min,
+                borderColor: 'rgba(220, 53, 69, 0.7)',
+                borderWidth: 2,
+                borderDash: [6, 6],
+                label: {
+                    content: 'Min',
+                    enabled: true,
+                    position: 'left'
+                }
+            });
+        }
+
+        if (max !== null) {
+            chart.options.plugins.annotation.annotations.push({
+                id: `${paramName}-max`,
+                type: 'line',
+                mode: 'horizontal',
+                scaleID: 'y',
+                value: max,
+                borderColor: 'rgba(13, 110, 253, 0.7)',
+                borderWidth: 2,
+                borderDash: [6, 6],
+                label: {
+                    content: 'Max',
+                    enabled: true,
+                    position: 'left'
+                }
+            });
+        }
+
+        chart.update();
+    }
+
+    // Переход в админ-панель
+    adminBtn.addEventListener('click', () => {
+        window.location.href = '/admin';
+    });
+
+    // Выход из системы
+    function logout() {
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = '/login';
+    }
+
+    // Получение cookie
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    // Инициализация графика
+    function initChart(canvasId, title) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: title,
+                    data: [],
+                    borderColor: chartColors[canvasId.replace('Chart', '')],
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Время'
+                        }
+                    },
+                    y: {
+                        display: true
+                    }
+                },
+                animation: {
+                    duration: 0
+                },
+                plugins: {
+                    annotation: {
+                        annotations: []
+                    }
+                }
+            }
+        });
+    }
+
+    // Обновление графика
+    function updateChart(parameter, timeStr, value) {
+        const chart = charts[parameter];
+        const time = new Date(timeStr).toLocaleTimeString();
+
+        chart.data.labels.push(time);
+        chart.data.datasets[0].data.push(value);
+
+        if (chart.data.labels.length > config.maxDataPoints) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+        }
+
+        // Проверка выхода за пределы
+        const min = thresholds[parameter]?.min;
+        const max = thresholds[parameter]?.max;
+        const statusElement = document.getElementById(`${parameter}Status`);
+
+        if (min !== null && max !== null) {
+            if (value < min || value > max) {
+                statusElement.textContent = 'ВНИМАНИЕ: Значение вне диапазона!';
+                statusElement.className = 'threshold-value out-of-range';
+                chart.data.datasets[0].borderColor = 'rgba(220, 53, 69, 1)';
+            } else {
+                statusElement.textContent = 'Значение в норме';
+                statusElement.className = '';
+                chart.data.datasets[0].borderColor = chartColors[parameter];
+            }
+        }
+
+        chart.update();
+    }
+
+    // Подключение к WebSocket
+    function connectWebSocket() {
+        clearTimeout(reconnectTimeout);
+
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const wsUrl = protocol + window.location.host + '/ws';
+
+        statusElement.textContent = 'Подключение к серверу...';
+        statusElement.className = 'status connecting';
+
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = function() {
+            statusElement.textContent = 'Соединение установлено';
+            statusElement.className = 'status connected';
+            console.log('WebSocket подключен');
+        };
+
+        socket.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Получены данные:', data);
+                updateChart(data.parameter, data.time, data.value);
+            } catch (e) {
+                console.error('Ошибка обработки данных:', e);
+            }
+        };
+
+        socket.onclose = function() {
+            statusElement.textContent = 'Соединение закрыто. Попытка переподключения...';
+            statusElement.className = 'status disconnected';
+            console.log('WebSocket отключен');
+
+            reconnectTimeout = setTimeout(connectWebSocket, config.reconnectInterval);
+        };
+
+        socket.onerror = function(error) {
+            console.error('WebSocket ошибка:', error);
+            socket.close();
+        };
+    }
+
+    // Инициализация
+    checkAdminRights();
+    loadThresholds();
+    let socket;
+    let reconnectTimeout;
+    connectWebSocket();
+
+    window.addEventListener('beforeunload', function() {
+        if (socket) {
+            socket.close();
+        }
+        clearTimeout(reconnectTimeout);
+    });
+</script>
+</body>
+</html>

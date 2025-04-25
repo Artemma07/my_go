@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Журнал событий</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --border-color: #ddd;
+            --text-color: #333;
+            --bg-color: #f5f5f5;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .logs-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .logs-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logs-title {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            font-size: 14px;
+            color: #555;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .apply-filters {
+            padding: 8px 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            align-self: flex-end;
+            font-weight: 600;
+        }
+
+        .status-message {
+            padding: 12px 15px;
+            margin: 0;
+            border-radius: 4px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .loading {
+            background-color: #fff3cd;
+            color: #856404;
+            display: block;
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .logs-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+        }
+
+        .logs-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .logs-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .logs-table-container {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .refresh-btn {
+            background-color: var(--success-color);
+            margin-left: 10px;
+        }
+
+        .action-login {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .action-logout {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .action-parameter {
+            color: #007bff;
+            font-weight: 500;
+        }
+
+        .action-report {
+            color: #6f42c1;
+            font-weight: 500;
+        }
+
+        .action-threshold {
+            color: #fd7e14;
+            font-weight: 500;
+        }
+
+        .time-cell {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .filter-controls {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .logs-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Журнал событий системы</h1>
+    <div class="nav-buttons">
+        <button onclick="window.location.href='/'" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
+            </svg>
+            На главную
+        </button>
+        <button onclick="logout()" class="btn btn-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M12 1a1 1 0 0 1 1 1v13h1.5a.5.5 0 0 1 0 1h-13a.5.5 0 0 1 0-1H3V2a1 1 0 0 1 1-1h8zm-2 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+            </svg>
+            Выйти
+        </button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="statusMessage" class="status-message"></div>
+
+    <div class="logs-container">
+        <div class="logs-header">
+            <h2 class="logs-title">История событий</h2>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label for="actionType">Тип действия</label>
+                    <select id="actionType">
+                        <option value="">Все события</option>
+                        <option value="login">Вход в систему</option>
+                        <option value="logout">Выход из системы</option>
+                        <option value="parameter_update">Изменение параметров</option>
+                        <option value="report_generated">Создание отчетов</option>
+                        <option value="threshold_alert">Выход за пределы</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="dateFrom">Дата с</label>
+                    <input type="datetime-local" id="dateFrom">
+                </div>
+
+                <div class="filter-group">
+                    <label for="dateTo">Дата по</label>
+                    <input type="datetime-local" id="dateTo">
+                </div>
+
+                <button id="applyFilters" class="apply-filters">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    Применить
+                </button>
+            </div>
+        </div>
+
+        <div class="logs-table-container">
+            <table class="logs-table">
+                <thead>
+                <tr>
+                    <th style="width: 180px;">Время</th>
+                    <th style="width: 150px;">Пользователь</th>
+                    <th style="width: 200px;">Тип действия</th>
+                    <th>Описание</th>
+                </tr>
+                </thead>
+                <tbody id="logsTableBody">
+                <tr>
+                    <td colspan="4" style="text-align: center;">Загрузка данных...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Отображение сообщения о статусе
+    function showMessage(message, isError = false, isSuccess = false) {
+        const statusElement = document.getElementById('statusMessage');
+        statusElement.textContent = message;
+
+        if (isError) {
+            statusElement.className = 'status-message error';
+        } else if (isSuccess) {
+            statusElement.className = 'status-message success';
+        } else {
+            statusElement.className = 'status-message loading';
+        }
+
+        statusElement.style.display = 'block';
+
+        // Автоматическое скрытие через 5 секунд
+        if (isError || isSuccess) {
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    // Получение cookie
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    // Преобразование типа действия в читаемый формат
+    function getActionTypeName(type) {
+        const types = {
+            'login': 'Вход в систему',
+            'logout': 'Выход из системы',
+            'parameter_update': 'Изменение параметров',
+            'report_generated': 'Создание отчета',
+            'threshold_alert': 'Выход за пределы'
+        };
+        return types[type] || type;
+    }
+
+    // Получение класса для типа действия
+    function getActionClass(type) {
+        const classes = {
+            'login': 'action-login',
+            'logout': 'action-logout',
+            'parameter_update': 'action-parameter',
+            'report_generated': 'action-report',
+            'threshold_alert': 'action-threshold'
+        };
+        return classes[type] || '';
+    }
+
+    // Отображение логов в таблице
+    function renderLogs(logs) {
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = '';
+
+        if (!logs || !Array.isArray(logs)) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="no-data">
+                        Ошибка загрузки данных
+                        <button onclick="loadLogs()" class="btn refresh-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                            </svg>
+                            Обновить
+                        </button>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        if (logs.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="no-data">
+                        Нет данных для отображения
+                        <button onclick="loadLogs()" class="btn refresh-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                            </svg>
+                            Обновить
+                        </button>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        logs.forEach(log => {
+            const row = document.createElement('tr');
+
+            // Ячейка времени
+            const timeCell = document.createElement('td');
+            timeCell.className = 'time-cell';
+            try {
+                timeCell.textContent = new Date(log.time).toLocaleString();
+            } catch (e) {
+                timeCell.textContent = log.time || '—';
+            }
+            row.appendChild(timeCell);
+
+            // Ячейка пользователя
+            const userCell = document.createElement('td');
+            userCell.textContent = log.user_login || 'Система';
+            row.appendChild(userCell);
+
+            // Ячейка типа действия
+            const typeCell = document.createElement('td');
+            typeCell.textContent = getActionTypeName(log.action_type);
+            typeCell.className = getActionClass(log.action_type);
+            row.appendChild(typeCell);
+
+            // Ячейка описания
+            const descCell = document.createElement('td');
+            descCell.textContent = log.description || '—';
+            row.appendChild(descCell);
+
+            tbody.appendChild(row);
+        });
+    }
+
+    // Загрузка логов
+    async function loadLogs() {
+        try {
+            showMessage('Загрузка данных...', false);
+
+            // Собираем параметры фильтрации
+            const params = new URLSearchParams();
+            const actionType = document.getElementById('actionType').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+
+            if (actionType) params.append('actionType', actionType);
+            if (dateFrom) params.append('dateFrom', dateFrom);
+            if (dateTo) params.append('dateTo', dateTo);
+
+            const response = await fetch(`/api/logs?${params.toString()}`, {
+                headers: {
+                    'Authorization': `Bearer ${getCookie('token')}`,
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'  // Важно для передачи куки
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Ошибка сервера: ${response.status} - ${errorText}`);
+            }
+
+            const logs = await response.json();
+
+            if (!Array.isArray(logs)) {
+                throw new Error("Некорректный формат данных");
+            }
+
+            renderLogs(logs);
+            showMessage(`Загружено ${logs.length} записей`, false, true);
+
+        } catch (error) {
+            console.error('Ошибка загрузки логов:', error);
+            showMessage(error.message, true);
+            renderError();
+        }
+    }
+
+    function renderError() {
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="no-data">
+                    Не удалось загрузить данные
+                    <button onclick="loadLogs()" class="btn refresh-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                        Обновить
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+
+    // Выход из системы
+    function logout() {
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = '/login';
+    }
+
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+        // Установка дат по умолчанию (последние 7 дней)
+        const now = new Date();
+        const weekAgo = new Date();
+        weekAgo.setDate(now.getDate() - 7);
+
+        // Форматирование даты для input[type=datetime-local]
+        const formatDate = (date) => {
+            const pad = num => num.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        };
+
+        document.getElementById('dateFrom').value = formatDate(weekAgo);
+        document.getElementById('dateTo').value = formatDate(now);
+
+        // Загрузка данных
+        loadLogs();
+
+        // Назначение обработчика для кнопки "Применить"
+        document.getElementById('applyFilters').addEventListener('click', loadLogs);
+
+        // Автоматическое обновление каждые 30 секунд
+        setInterval(loadLogs, 30000);
+    });
+</script>
+</body>
+</html>
